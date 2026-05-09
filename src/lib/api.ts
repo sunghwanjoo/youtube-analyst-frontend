@@ -1,9 +1,7 @@
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
 export const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: '/api',
   timeout: 60000,
 })
 
@@ -100,7 +98,7 @@ export interface ScriptRewriteResponse {
 // ─── API Calls ────────────────────────────────────────────────────
 
 export const searchVideos = (req: SearchRequest) =>
-  api.post<SearchResponse>('/search/', req).then(r => r.data)
+  api.post<SearchResponse>('/search', req).then(r => r.data)
 
 export const generateTitles = (
   keyword: string,
