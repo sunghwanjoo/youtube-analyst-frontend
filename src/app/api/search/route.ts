@@ -98,8 +98,8 @@ export async function POST(req: NextRequest) {
     }
     if (page_token) searchParams.pageToken = page_token
     if (period && period !== 'all') searchParams.publishedAfter = getPeriodDate(period)
+    // YouTube API의 'long'은 20분 초과만 의미 → 롱폼은 로컬 필터로만 처리
     if (content_type === 'short') searchParams.videoDuration = 'short'
-    else if (content_type === 'long') searchParams.videoDuration = 'long'
 
     const searchData = await ytGet('search', searchParams)
 
