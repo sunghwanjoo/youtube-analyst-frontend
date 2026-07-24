@@ -41,3 +41,18 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+# === 보안 강화: 민감정보 (절대 커밋 금지) ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.ppk
+*.p12
+*.pfx
+*.cer
+중요_api key.txt
+주요 KEY.txt
+.vercel_token
+supabase_token.md
+.claude/
