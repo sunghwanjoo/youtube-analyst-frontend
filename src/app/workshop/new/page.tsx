@@ -4,17 +4,24 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { getWorkshopContext } from "@/lib/handoff";
 import { extractYoutubeVideoId } from "@/lib/utils";
-import { getSearchUsage, extractForWorkshop, createWorkshopItem } from "@/lib/api";
+import {
+  getSearchUsage,
+  extractWorkshopSource,
+  regenerateWorkshopContent,
+  createWorkshopItem,
+  WorkshopExtractResponse,
+} from "@/lib/api";
 import { WorkshopEditor, WorkshopEditableData } from "@/components/workshop/WorkshopEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Package, Loader2 } from "lucide-react";
+import { Package, Loader2, Wand2 } from "lucide-react";
 
 export default function WorkshopNewPage() {
   const router = useRouter();
   const [ctx] = useState(() => getWorkshopContext());
   const [videoUrl, setVideoUrl] = useState("");
   const [keyword, setKeyword] = useState(ctx?.keyword ?? "");
+  const [source, setSource] = useState<WorkshopExtractResponse | null>(null);
 
   const { data: usage, isLoading: usageLoading } = useQuery({
     queryKey: ["search-usage"],
@@ -25,21 +32,26 @@ export default function WorkshopNewPage() {
     mutationFn: async () => {
       const videoId = ctx?.videoId ?? extractYoutubeVideoId(videoUrl);
       if (!videoId) throw new Error("영상 URL이 올바르지 않습니다.");
-      if (!keyword.trim()) throw new Error("키워드를 입력해주세요.");
-      return extractForWorkshop({
-        videoId,
+      return extractWorkshopSource(videoId);
+    },
+    onSuccess: (data) => setSource(data),
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: () =>
+      regenerateWorkshopContent({
         keyword: keyword.trim(),
+        sourceScript: source!.sourceScript,
         topTitles: ctx?.topTitles,
         avgSubscribers: ctx?.avgSubscribers,
-      });
-    },
+      }),
   });
 
   const saveMutation = useMutation({
     mutationFn: (data: WorkshopEditableData) =>
       createWorkshopItem({
         keyword: data.keyword,
-        sourceVideoId: extractMutation.data!.sourceVideoId,
+        sourceVideoId: source!.sourceVideoId,
         sourceTitle: data.sourceTitle,
         sourceDescription: data.sourceDescription,
         sourceThumbnailUrl: data.sourceThumbnailUrl,
@@ -72,11 +84,12 @@ export default function WorkshopNewPage() {
       <div>
         <h1 className="text-2xl font-bold">제작소 — 새로 만들기</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          영상 하나로 제목/설명/썸네일/스크립트를 뽑고, 재구성까지 한 번에
+          영상 하나로 제목/설명/썸네일/스크립트를 뽑고, 재구성까지
         </p>
       </div>
 
-      {!extractMutation.data && (
+      {/* 1단계: 원본 추출 */}
+      {!source && (
         <div className="rounded-lg border p-4 space-y-3">
           {ctx ? (
             <div className="flex gap-3 items-center">
@@ -100,7 +113,7 @@ export default function WorkshopNewPage() {
           />
           <Button
             onClick={() => extractMutation.mutate()}
-            disabled={extractMutation.isPending || !keyword.trim() || (!ctx && !videoUrl.trim())}
+            disabled={extractMutation.isPending || (!ctx && !videoUrl.trim())}
             className="bg-red-600 hover:bg-red-700"
           >
             {extractMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "추출하기"}
@@ -108,21 +121,76 @@ export default function WorkshopNewPage() {
           {extractMutation.isError && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
               {(extractMutation.error as any)?.response?.data?.detail || (extractMutation.error as Error).message}
+              <p className="mt-1 text-xs">
+                유튜브 쪽 일시적인 차단일 수 있어요 — 잠시 후 다시 시도해보세요.
+              </p>
             </div>
           )}
         </div>
       )}
 
-      {extractMutation.data && (
+      {/* 2단계: 원본 확인/수정 + 재구성 트리거 */}
+      {source && !regenerateMutation.data && (
+        <div className="rounded-lg border p-4 space-y-3">
+          <p className="text-sm font-medium text-muted-foreground">원본 영상 (확인 후 재구성하세요)</p>
+          <div className="flex gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={source.sourceThumbnailUrl} alt="" className="w-32 h-20 object-cover rounded shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <Input
+                value={source.sourceTitle}
+                onChange={(e) => setSource({ ...source, sourceTitle: e.target.value })}
+                className="h-8 text-sm font-medium"
+              />
+              <textarea
+                className="w-full h-16 rounded-md border p-2 text-xs text-muted-foreground"
+                value={source.sourceDescription}
+                onChange={(e) => setSource({ ...source, sourceDescription: e.target.value })}
+              />
+            </div>
+          </div>
+          <textarea
+            className="w-full h-32 rounded-md border p-2 text-sm"
+            value={source.sourceScript}
+            onChange={(e) => setSource({ ...source, sourceScript: e.target.value })}
+          />
+          <Input
+            placeholder="키워드"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            className="h-9"
+          />
+          <Button
+            onClick={() => regenerateMutation.mutate()}
+            disabled={regenerateMutation.isPending || !keyword.trim()}
+            className="bg-red-600 hover:bg-red-700 gap-1.5"
+          >
+            {regenerateMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Wand2 className="w-4 h-4" />
+            )}
+            제목/스크립트 재구성하기
+          </Button>
+          {regenerateMutation.isError && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+              {(regenerateMutation.error as any)?.response?.data?.detail || (regenerateMutation.error as Error).message}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3단계: 재구성 결과 편집 + 저장 */}
+      {source && regenerateMutation.data && (
         <WorkshopEditor
           data={{
-            keyword: extractMutation.data.keyword,
-            sourceTitle: extractMutation.data.sourceTitle,
-            sourceDescription: extractMutation.data.sourceDescription,
-            sourceThumbnailUrl: extractMutation.data.sourceThumbnailUrl,
-            sourceScript: extractMutation.data.sourceScript,
-            generatedTitles: extractMutation.data.generatedTitles,
-            generatedScripts: extractMutation.data.generatedScripts,
+            keyword,
+            sourceTitle: source.sourceTitle,
+            sourceDescription: source.sourceDescription,
+            sourceThumbnailUrl: source.sourceThumbnailUrl,
+            sourceScript: source.sourceScript,
+            generatedTitles: regenerateMutation.data.generatedTitles,
+            generatedScripts: regenerateMutation.data.generatedScripts,
           }}
           onSave={(data) => saveMutation.mutate(data)}
           saving={saveMutation.isPending}

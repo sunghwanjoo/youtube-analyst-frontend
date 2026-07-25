@@ -88,15 +88,17 @@ export const searchVideos = (req: SearchRequest) =>
 export const getSearchUsage = () =>
   api.get<SearchUsage>('/search/usage').then(r => r.data)
 
-// ─── 제작소 (Workshop): 원본 추출 + 제목/스크립트 재구성 통합 ───────
+// ─── 제작소 (Workshop): 원본 추출 → 재구성 (2단계) ─────────────────
 
 export interface WorkshopExtractResponse {
-  keyword: string
   sourceVideoId: string
   sourceTitle: string
   sourceDescription: string
   sourceThumbnailUrl: string
   sourceScript: string
+}
+
+export interface WorkshopRegenerateResponse {
   generatedTitles: GeneratedTitle[]
   generatedScripts: ScriptVersion[]
   competitionLevel: string
@@ -119,13 +121,16 @@ export interface WorkshopItem {
   updatedAt: string
 }
 
-export const extractForWorkshop = (params: {
-  videoId: string
+export const extractWorkshopSource = (videoId: string) =>
+  api.post<WorkshopExtractResponse>('/workshop/extract', { videoId }).then(r => r.data)
+
+export const regenerateWorkshopContent = (params: {
   keyword: string
+  sourceScript: string
   topTitles?: string[]
   avgSubscribers?: number
 }) =>
-  api.post<WorkshopExtractResponse>('/workshop/extract', params).then(r => r.data)
+  api.post<WorkshopRegenerateResponse>('/workshop/regenerate', params).then(r => r.data)
 
 export const getWorkshopItems = () =>
   api.get<{ items: WorkshopItem[] }>('/workshop').then(r => r.data.items)
