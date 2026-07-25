@@ -2,13 +2,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Play, Search, Sparkles, Upload, Heart, LogOut } from "lucide-react";
+import { Play, Search, Package, Upload, Heart, LogOut } from "lucide-react";
 import { useSession, signIn, signOut } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/", label: "검색 & 분석", icon: Search },
-  { href: "/seo", label: "SEO & 스크립트", icon: Sparkles },
+  { href: "/workshop", label: "제작소", icon: Package },
   { href: "/publish", label: "예약 발행", icon: Upload },
   { href: "/favorites", label: "관심영상", icon: Heart },
 ];
@@ -33,7 +33,7 @@ export function Navbar() {
                 href={href}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
-                  pathname === href
+                  href === "/" ? pathname === "/" : pathname.startsWith(href)
                     ? "bg-red-50 text-red-600"
                     : "text-muted-foreground hover:text-foreground hover:bg-gray-100"
                 )}

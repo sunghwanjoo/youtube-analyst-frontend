@@ -99,6 +99,21 @@ export const connectedChannels = pgTable("connected_channels", {
   unique("connected_channels_user_channel_unique").on(t.userId, t.channelId),
 ]);
 
+export const workshopItems = pgTable("workshop_items", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  keyword: text("keyword").notNull(),
+  sourceVideoId: text("source_video_id").notNull(),
+  sourceTitle: text("source_title").notNull(),
+  sourceDescription: text("source_description").notNull().default(""),
+  sourceThumbnailUrl: text("source_thumbnail_url"),
+  sourceScript: text("source_script").notNull().default(""),
+  generatedTitles: jsonb("generated_titles").$type<Record<string, unknown>[]>().notNull().default([]),
+  generatedScripts: jsonb("generated_scripts").$type<Record<string, unknown>[]>().notNull().default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const scheduledPublishes = pgTable("scheduled_publishes", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),

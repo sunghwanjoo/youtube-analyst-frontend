@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { VideoResult } from "@/lib/api";
-import { setSeoContext, setScriptContext } from "@/lib/handoff";
+import { setWorkshopContext } from "@/lib/handoff";
 import {
   Table,
   TableBody,
@@ -17,10 +17,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Heart,
-  Sparkles,
-  FileText,
+  Package,
   ArrowUp,
   ArrowDown,
   HelpCircle,
@@ -56,30 +56,24 @@ export function VideoTable({ videos, keyword }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("viral_score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [scoreModal, setScoreModal] = useState<"viral" | "longrun" | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<VideoResult | null>(null);
   const [favs, setFavs] = useState<Set<string>>(
     () => new Set(videos.filter((v) => isFavorite(v.video_id)).map((v) => v.video_id))
   );
 
-  const handleGenerateSeo = (video: VideoResult) => {
+  const handleCreateInWorkshop = (video: VideoResult) => {
     const top = videos.slice(0, 10);
     const subs = top.map((v) => v.subscriber_count ?? 0).filter((n) => n > 0);
     const avgSubscribers = subs.length ? Math.round(subs.reduce((a, b) => a + b, 0) / subs.length) : 0;
-    setSeoContext({
+    setWorkshopContext({
+      videoId: video.video_id,
       keyword,
-      originalTitle: video.title,
+      title: video.title,
+      thumbnailUrl: video.thumbnail_url,
       topTitles: top.map((v) => v.title),
       avgSubscribers,
     });
-    router.push("/seo");
-  };
-
-  const handleExtractScript = (video: VideoResult) => {
-    setScriptContext({
-      videoUrl: `https://youtube.com/watch?v=${video.video_id}`,
-      title: video.title,
-      keyword,
-    });
-    router.push("/script");
+    router.push("/workshop/new");
   };
 
   const handleSort = (key: SortKey) => {
@@ -175,28 +169,22 @@ export function VideoTable({ videos, keyword }: Props) {
             {sorted.map((v) => (
               <TableRow key={v.video_id} className="hover:bg-gray-50">
                 <TableCell>
-                  <a
-                    href={`https://youtube.com/watch?v=${v.video_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  <button onClick={() => setPreviewVideo(v)} className="block">
                     <img
                       src={v.thumbnail_url}
                       alt={v.title}
                       className="w-16 h-10 object-cover rounded"
                     />
-                  </a>
+                  </button>
                 </TableCell>
                 <TableCell className="whitespace-normal max-w-[280px]">
                   <div className="space-y-0.5">
-                    <a
-                      href={`https://youtube.com/watch?v=${v.video_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium hover:text-red-600 line-clamp-2 leading-tight"
+                    <button
+                      onClick={() => setPreviewVideo(v)}
+                      className="text-sm font-medium hover:text-red-600 line-clamp-2 leading-tight text-left"
                     >
                       {v.title}
-                    </a>
+                    </button>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-muted-foreground">{v.channel_name}</span>
                       {v.is_short && <Badge variant="secondary" className="text-xs py-0 px-1.5">Shorts</Badge>}
@@ -239,20 +227,11 @@ export function VideoTable({ videos, keyword }: Props) {
                     <Tooltip>
                       <TooltipTrigger
                         className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-accent"
-                        onClick={() => handleGenerateSeo(v)}
+                        onClick={() => handleCreateInWorkshop(v)}
                       >
-                        <Sparkles className="w-4 h-4 text-muted-foreground" />
+                        <Package className="w-4 h-4 text-muted-foreground" />
                       </TooltipTrigger>
-                      <TooltipContent>SEO 제목 생성</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger
-                        className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-accent"
-                        onClick={() => handleExtractScript(v)}
-                      >
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>스크립트 추출</TooltipContent>
+                      <TooltipContent>제작소로 만들기</TooltipContent>
                     </Tooltip>
                   </div>
                 </TableCell>
@@ -267,6 +246,23 @@ export function VideoTable({ videos, keyword }: Props) {
         onClose={() => setScoreModal(null)}
         type={scoreModal === "viral" ? "viral" : "longrun"}
       />
+
+      <Dialog open={previewVideo !== null} onOpenChange={(open) => !open && setPreviewVideo(null)}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden">
+          <DialogTitle className="sr-only">{previewVideo?.title ?? "영상 미리보기"}</DialogTitle>
+          {previewVideo && (
+            <div className="aspect-video w-full">
+              <iframe
+                src={`https://www.youtube.com/embed/${previewVideo.video_id}?autoplay=1`}
+                title={previewVideo.title}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

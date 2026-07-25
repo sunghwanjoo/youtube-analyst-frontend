@@ -78,6 +78,7 @@ export async function extractScript(videoUrl: string, lang = "ko") {
   return {
     video_id: videoId,
     title: details.title,
+    description: details.description,
     raw_script: rawScript.slice(0, 5000),
     cleaned_script: cleaned,
     word_count: cleaned.split(/\s+/).filter(Boolean).length,
