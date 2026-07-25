@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { searchVideos, SearchRequest, VideoResult } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { searchVideos, getSearchUsage, SearchRequest, VideoResult } from "@/lib/api";
 import { addSearchHistory, getSearchHistory, SearchHistoryItem } from "@/lib/store";
 import { VideoTable } from "@/components/search/VideoTable";
 import { SearchFilters, FilterState } from "@/components/search/SearchFilters";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Clock, Loader2, ChevronDown } from "lucide-react";
+import { useSession, signIn } from "@/lib/auth-client";
 
 const DEFAULT_FILTERS: FilterState = {
   period: "all",
@@ -28,6 +29,15 @@ export default function SearchPage() {
   const [allResults, setAllResults] = useState<VideoResult[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const currentReqRef = useRef<SearchRequest | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data: session, isPending: sessionPending } = useSession();
+
+  const { data: usage } = useQuery({
+    queryKey: ["search-usage"],
+    queryFn: getSearchUsage,
+    enabled: !!session,
+  });
 
   useEffect(() => { setHistory(getSearchHistory()); }, []);
 
@@ -46,6 +56,7 @@ export default function SearchPage() {
         setAllResults(data.results);
         const updated = addSearchHistory(data.keyword, data.total);
         setHistory(updated);
+        queryClient.invalidateQueries({ queryKey: ["search-usage"] });
       }
       setNextPageToken(data.next_page_token);
     },
@@ -86,13 +97,40 @@ export default function SearchPage() {
 
   const keyword_display = currentReqRef.current?.keyword ?? "";
 
+  if (sessionPending) return null;
+
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 text-center">
+        <Search className="w-12 h-12 mb-4 opacity-20" />
+        <h1 className="text-xl font-bold mb-2">검색 & 분석</h1>
+        <p className="text-muted-foreground text-sm mb-6">
+          로그인하면 하루 5회 무료로 검색할 수 있어요
+        </p>
+        <Button
+          onClick={() => signIn.social({ provider: "google", callbackURL: "/" })}
+          className="h-10 px-6 bg-red-600 hover:bg-red-700"
+        >
+          Google로 로그인
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">검색 & 분석</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          키워드로 떡상한 영상을 찾아보세요
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">검색 & 분석</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            키워드로 떡상한 영상을 찾아보세요
+          </p>
+        </div>
+        {usage && usage.plan === "free" && (
+          <Badge variant="secondary" className="text-xs">
+            오늘 {usage.remaining ?? 0}/{usage.limit} 회 남음
+          </Badge>
+        )}
       </div>
 
       {/* 검색창 */}

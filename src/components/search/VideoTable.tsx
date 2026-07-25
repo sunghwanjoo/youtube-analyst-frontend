@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { VideoResult } from "@/lib/api";
+import { setSeoContext, setScriptContext } from "@/lib/handoff";
 import {
   Table,
   TableBody,
@@ -25,7 +26,6 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { ScoreModal } from "./ScoreModal";
-import { PaywallModal } from "@/components/PaywallModal";
 import { addFavorite, isFavorite, removeFavorite } from "@/lib/store";
 
 type SortKey =
@@ -52,13 +52,35 @@ function fmt(n?: number | null): string {
 }
 
 export function VideoTable({ videos, keyword }: Props) {
+  const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>("viral_score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [scoreModal, setScoreModal] = useState<"viral" | "longrun" | null>(null);
-  const [paywallOpen, setPaywallOpen] = useState(false);
   const [favs, setFavs] = useState<Set<string>>(
     () => new Set(videos.filter((v) => isFavorite(v.video_id)).map((v) => v.video_id))
   );
+
+  const handleGenerateSeo = (video: VideoResult) => {
+    const top = videos.slice(0, 10);
+    const subs = top.map((v) => v.subscriber_count ?? 0).filter((n) => n > 0);
+    const avgSubscribers = subs.length ? Math.round(subs.reduce((a, b) => a + b, 0) / subs.length) : 0;
+    setSeoContext({
+      keyword,
+      originalTitle: video.title,
+      topTitles: top.map((v) => v.title),
+      avgSubscribers,
+    });
+    router.push("/seo");
+  };
+
+  const handleExtractScript = (video: VideoResult) => {
+    setScriptContext({
+      videoUrl: `https://youtube.com/watch?v=${video.video_id}`,
+      title: video.title,
+      keyword,
+    });
+    router.push("/script");
+  };
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -217,7 +239,7 @@ export function VideoTable({ videos, keyword }: Props) {
                     <Tooltip>
                       <TooltipTrigger
                         className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-accent"
-                        onClick={() => setPaywallOpen(true)}
+                        onClick={() => handleGenerateSeo(v)}
                       >
                         <Sparkles className="w-4 h-4 text-muted-foreground" />
                       </TooltipTrigger>
@@ -226,7 +248,7 @@ export function VideoTable({ videos, keyword }: Props) {
                     <Tooltip>
                       <TooltipTrigger
                         className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-accent"
-                        onClick={() => setPaywallOpen(true)}
+                        onClick={() => handleExtractScript(v)}
                       >
                         <FileText className="w-4 h-4 text-muted-foreground" />
                       </TooltipTrigger>
@@ -245,7 +267,6 @@ export function VideoTable({ videos, keyword }: Props) {
         onClose={() => setScoreModal(null)}
         type={scoreModal === "viral" ? "viral" : "longrun"}
       />
-      <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} />
     </>
   );
 }

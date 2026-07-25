@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Play, Search, Sparkles, Upload, Heart } from "lucide-react";
+import { Play, Search, Sparkles, Upload, Heart, LogOut } from "lucide-react";
+import { useSession, signIn, signOut } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/", label: "검색 & 분석", icon: Search },
@@ -13,6 +15,9 @@ const navItems = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
+
   return (
     <nav className="border-b bg-white sticky top-0 z-50">
       <div className="container mx-auto px-4 max-w-[1400px]">
@@ -21,7 +26,7 @@ export function Navbar() {
             <Play className="w-5 h-5 fill-red-600" />
             <span className="hidden sm:inline">YouTube Analyst</span>
           </Link>
-          <div className="flex items-center gap-1 overflow-x-auto">
+          <div className="flex items-center gap-1 overflow-x-auto flex-1">
             {navItems.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
@@ -38,6 +43,37 @@ export function Navbar() {
               </Link>
             ))}
           </div>
+
+          {isPending ? null : session ? (
+            <div className="flex items-center gap-2">
+              {session.user.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={session.user.image}
+                  alt={session.user.name}
+                  className="w-7 h-7 rounded-full"
+                />
+              )}
+              <span className="hidden sm:inline text-sm text-muted-foreground max-w-[120px] truncate">
+                {session.user.name}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => signOut({ fetchOptions: { onSuccess: () => router.push("/") } })}
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => signIn.social({ provider: "google", callbackURL: pathname })}
+            >
+              로그인
+            </Button>
+          )}
         </div>
       </div>
     </nav>

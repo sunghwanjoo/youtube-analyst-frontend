@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession, getUserPlan } from '@/lib/session'
+import { checkSearchLimit, incrementSearchUsage, FREE_DAILY_SEARCH_LIMIT } from '@/lib/rate-limit'
 
 const YT = 'https://www.googleapis.com/youtube/v3'
 const KEY = process.env.YOUTUBE_API_KEY || ''
@@ -84,6 +86,24 @@ export async function POST(req: NextRequest) {
 
   if (!keyword?.trim()) {
     return NextResponse.json({ detail: '키워드를 입력해주세요.' }, { status: 400 })
+  }
+
+  const session = await getServerSession()
+  if (!session) {
+    return NextResponse.json({ detail: '로그인이 필요합니다.' }, { status: 401 })
+  }
+
+  const isNewSearch = !page_token
+  const plan = await getUserPlan(session.user.id)
+
+  if (isNewSearch) {
+    const { allowed } = await checkSearchLimit(session.user.id, plan)
+    if (!allowed) {
+      return NextResponse.json(
+        { detail: `무료 플랜은 하루 ${FREE_DAILY_SEARCH_LIMIT}회까지 검색할 수 있습니다. 내일 자정(한국시간) 이후 다시 시도해주세요.` },
+        { status: 429 }
+      )
+    }
   }
 
   try {
@@ -185,6 +205,10 @@ export async function POST(req: NextRequest) {
       const bv = b[sortKey] ?? 0
       return typeof av === 'string' ? bv.localeCompare(av) : bv - av
     })
+
+    if (isNewSearch && plan === 'free') {
+      await incrementSearchUsage(session.user.id)
+    }
 
     return NextResponse.json({
       keyword,

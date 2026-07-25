@@ -97,8 +97,18 @@ export interface ScriptRewriteResponse {
 
 // ─── API Calls ────────────────────────────────────────────────────
 
+export interface SearchUsage {
+  loggedIn: boolean
+  plan?: 'free' | 'paid'
+  remaining?: number | null
+  limit?: number
+}
+
 export const searchVideos = (req: SearchRequest) =>
   api.post<SearchResponse>('/search', req).then(r => r.data)
+
+export const getSearchUsage = () =>
+  api.get<SearchUsage>('/search/usage').then(r => r.data)
 
 export const generateTitles = (
   keyword: string,
@@ -132,3 +142,55 @@ export const rewriteScript = (originalScript: string, keyword: string, titles: s
 
 export const lightRewriteScript = (originalScript: string) =>
   api.post<{ script: string }>('/script/light-rewrite', { original_script: originalScript }).then(r => r.data)
+
+// ─── Stage4: 채널 연동 & 예약 관리 ─────────────────────────────────
+
+export interface ConnectedChannel {
+  id: string
+  userId: string
+  channelId: string
+  channelName: string
+  thumbnailUrl?: string | null
+  connectedAt: string
+}
+
+export interface ScheduledPublish {
+  id: string
+  userId: string
+  channelId: string
+  title: string
+  description: string
+  tags: string[]
+  script: string
+  scheduledAt: string
+  status: 'pending' | 'published' | 'cancelled'
+  createdAt: string
+}
+
+export const getChannels = () =>
+  api.get<{ channels: ConnectedChannel[] }>('/channels').then(r => r.data.channels)
+
+export const syncChannels = () =>
+  api.post<{ ok: boolean; count: number }>('/channels/sync').then(r => r.data)
+
+export const getSchedules = () =>
+  api.get<{ items: ScheduledPublish[] }>('/publish/schedules').then(r => r.data.items)
+
+export const createSchedule = (req: {
+  channelId: string
+  title: string
+  description?: string
+  tags?: string[]
+  script?: string
+  scheduledAt: string
+}) =>
+  api.post<{ item: ScheduledPublish }>('/publish/schedules', req).then(r => r.data.item)
+
+export const updateScheduleStatus = (id: string, status: ScheduledPublish['status']) =>
+  api.patch<{ item: ScheduledPublish }>(`/publish/schedules/${id}`, { status }).then(r => r.data.item)
+
+export const deleteSchedule = (id: string) =>
+  api.delete(`/publish/schedules/${id}`)
+
+export const getUploadSessionUrl = (scheduleId: string, fileSizeBytes: number, fileMimeType: string) =>
+  api.post<{ uploadUrl: string }>('/publish/upload-session', { scheduleId, fileSizeBytes, fileMimeType }).then(r => r.data.uploadUrl)
