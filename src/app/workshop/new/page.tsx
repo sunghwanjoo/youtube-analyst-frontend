@@ -153,6 +153,23 @@ export default function WorkshopNewPage() {
       {source && !regenerateMutation.data && (
         <div className="rounded-lg border p-4 space-y-3">
           <p className="text-sm font-medium text-muted-foreground">원본 영상 (확인 후 재구성하세요)</p>
+          {source.scriptError && (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs space-y-1">
+              <p>자막 추출은 실패했지만 제목/설명은 정상적으로 가져왔어요. 유튜브 쪽 일시적인 차단일 수 있습니다.</p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => extractMutation.mutate()}
+                  disabled={extractMutation.isPending}
+                >
+                  {extractMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "자막 다시 시도"}
+                </Button>
+              </div>
+              <p>또는 아래 스크립트 칸에 직접 붙여넣고 진행할 수 있어요.</p>
+            </div>
+          )}
           <div className="flex gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={source.sourceThumbnailUrl} alt="" className="w-32 h-20 object-cover rounded shrink-0" />
@@ -171,6 +188,7 @@ export default function WorkshopNewPage() {
           </div>
           <textarea
             className="w-full h-32 rounded-md border p-2 text-sm"
+            placeholder="자막 추출 실패 시 여기에 스크립트를 직접 붙여넣어 주세요"
             value={source.sourceScript}
             onChange={(e) => setSource({ ...source, sourceScript: e.target.value })}
           />
@@ -183,7 +201,7 @@ export default function WorkshopNewPage() {
           <div className="flex gap-2">
             <Button
               onClick={() => regenerateMutation.mutate()}
-              disabled={regenerateMutation.isPending || !keyword.trim()}
+              disabled={regenerateMutation.isPending || !keyword.trim() || !source.sourceScript.trim()}
               className="bg-red-600 hover:bg-red-700 gap-1.5"
             >
               {regenerateMutation.isPending ? (

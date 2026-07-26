@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       sourceDescription: script.description,
       sourceThumbnailUrl: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
       sourceScript: script.cleaned_script,
+      scriptError: script.script_error,
     });
   } catch (e: any) {
     return NextResponse.json({ detail: e.message || "추출 실패" }, { status: 400 });

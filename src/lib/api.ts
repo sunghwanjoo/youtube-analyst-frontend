@@ -96,6 +96,7 @@ export interface WorkshopExtractResponse {
   sourceDescription: string
   sourceThumbnailUrl: string
   sourceScript: string
+  scriptError?: string | null
 }
 
 export interface WorkshopRegenerateResponse {

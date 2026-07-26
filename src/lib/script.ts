@@ -1,5 +1,5 @@
 import "server-only";
-import { getVideoDetails } from "youtube-caption-extractor";
+import { getSubtitles } from "youtube-caption-extractor";
 import type Anthropic from "@anthropic-ai/sdk";
 import { anthropic, CLAUDE_MODEL } from "@/lib/anthropic";
 import type { ScriptVersion } from "@/lib/api";
@@ -51,39 +51,47 @@ export function cleanKoreanScript(text: string): string {
   return cleaned;
 }
 
-async function fetchVideoTags(videoId: string): Promise<string[]> {
+// 제목/설명/태그는 공식 YouTube Data API로 — 아무 공개 영상이나 API 키만으로 안정적으로 조회 가능
+async function fetchVideoMetadata(videoId: string): Promise<{ title: string; description: string; tags: string[] }> {
   const key = process.env.YOUTUBE_API_KEY;
-  if (!key) return [];
-  try {
-    const res = await fetch(`${YT_API_BASE}/videos?part=snippet&id=${videoId}&key=${key}`);
-    const data = await res.json();
-    return data.items?.[0]?.snippet?.tags ?? [];
-  } catch {
-    return [];
-  }
+  if (!key) return { title: "", description: "", tags: [] };
+  const res = await fetch(`${YT_API_BASE}/videos?part=snippet&id=${videoId}&key=${key}`);
+  const data = await res.json();
+  const snippet = data.items?.[0]?.snippet;
+  return {
+    title: snippet?.title ?? "",
+    description: snippet?.description ?? "",
+    tags: snippet?.tags ?? [],
+  };
 }
 
 export async function extractScript(videoUrl: string, lang = "ko") {
   const videoId = extractVideoId(videoUrl);
-  const details = await getVideoDetails({ videoID: videoId, lang });
+  const metadata = await fetchVideoMetadata(videoId);
 
-  if (!details.subtitles.length) {
-    throw new Error("자막을 찾을 수 없습니다. 다른 영상을 선택해주세요.");
+  // 자막(스크립트)만 비공식 경로라 실패할 수 있음 — 실패해도 제목/설명은 그대로 반환
+  let cleaned = "";
+  let rawScript = "";
+  let scriptError: string | null = null;
+  try {
+    const subtitles = await getSubtitles({ videoID: videoId, lang });
+    if (!subtitles.length) throw new Error("자막을 찾을 수 없습니다.");
+    rawScript = subtitles.map((s) => s.text).join(" ");
+    cleaned = cleanKoreanScript(rawScript);
+  } catch (e) {
+    scriptError = e instanceof Error ? e.message : "자막 추출 실패";
   }
-
-  const rawScript = details.subtitles.map((s) => s.text).join(" ");
-  const cleaned = cleanKoreanScript(rawScript);
-  const tags = await fetchVideoTags(videoId);
 
   return {
     video_id: videoId,
-    title: details.title,
-    description: details.description,
+    title: metadata.title,
+    description: metadata.description,
     raw_script: rawScript.slice(0, 5000),
     cleaned_script: cleaned,
-    word_count: cleaned.split(/\s+/).filter(Boolean).length,
-    has_manual_subtitle: true,
-    tags,
+    word_count: cleaned ? cleaned.split(/\s+/).filter(Boolean).length : 0,
+    has_manual_subtitle: !scriptError,
+    script_error: scriptError,
+    tags: metadata.tags,
   };
 }
 
