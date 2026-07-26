@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getWorkshopContext } from "@/lib/handoff";
 import { extractYoutubeVideoId } from "@/lib/utils";
 import {
@@ -14,7 +15,7 @@ import {
 import { WorkshopEditor, WorkshopEditableData } from "@/components/workshop/WorkshopEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Package, Loader2, Wand2 } from "lucide-react";
+import { Package, Loader2, Wand2, Save, ArrowLeft } from "lucide-react";
 
 export default function WorkshopNewPage() {
   const router = useRouter();
@@ -59,7 +60,22 @@ export default function WorkshopNewPage() {
         generatedTitles: data.generatedTitles,
         generatedScripts: data.generatedScripts,
       }),
-    onSuccess: (item) => router.push(`/workshop/${item.id}`),
+    onSuccess: () => router.push("/workshop"),
+  });
+
+  const saveSourceOnlyMutation = useMutation({
+    mutationFn: () =>
+      createWorkshopItem({
+        keyword: keyword.trim(),
+        sourceVideoId: source!.sourceVideoId,
+        sourceTitle: source!.sourceTitle,
+        sourceDescription: source!.sourceDescription,
+        sourceThumbnailUrl: source!.sourceThumbnailUrl,
+        sourceScript: source!.sourceScript,
+        generatedTitles: [],
+        generatedScripts: [],
+      }),
+    onSuccess: () => router.push("/workshop"),
   });
 
   if (usageLoading) return null;
@@ -81,6 +97,10 @@ export default function WorkshopNewPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      <Link href="/workshop" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="w-4 h-4" />
+        목록으로
+      </Link>
       <div>
         <h1 className="text-2xl font-bold">제작소 — 새로 만들기</h1>
         <p className="text-muted-foreground text-sm mt-1">
@@ -160,18 +180,33 @@ export default function WorkshopNewPage() {
             onChange={(e) => setKeyword(e.target.value)}
             className="h-9"
           />
-          <Button
-            onClick={() => regenerateMutation.mutate()}
-            disabled={regenerateMutation.isPending || !keyword.trim()}
-            className="bg-red-600 hover:bg-red-700 gap-1.5"
-          >
-            {regenerateMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Wand2 className="w-4 h-4" />
-            )}
-            제목/스크립트 재구성하기
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => regenerateMutation.mutate()}
+              disabled={regenerateMutation.isPending || !keyword.trim()}
+              className="bg-red-600 hover:bg-red-700 gap-1.5"
+            >
+              {regenerateMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Wand2 className="w-4 h-4" />
+              )}
+              제목/스크립트 재구성하기
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => saveSourceOnlyMutation.mutate()}
+              disabled={saveSourceOnlyMutation.isPending || !keyword.trim()}
+              className="gap-1.5"
+            >
+              {saveSourceOnlyMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              재구성 없이 저장
+            </Button>
+          </div>
           {regenerateMutation.isError && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
               {(regenerateMutation.error as any)?.response?.data?.detail || (regenerateMutation.error as Error).message}

@@ -22,13 +22,35 @@ const DEFAULT_FILTERS: FilterState = {
   min_viral_score: "",
 };
 
+// 검색 결과 화면 상태 — 다른 페이지 갔다가 뒤로가기 해도 유지되도록 sessionStorage에 저장
+const SEARCH_STATE_KEY = "yt_search_page_state";
+
+interface SearchPageState {
+  keyword: string;
+  filters: FilterState;
+  allResults: VideoResult[];
+  nextPageToken?: string;
+  currentReq: SearchRequest | null;
+}
+
+function loadSearchState(): SearchPageState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SEARCH_STATE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SearchPage() {
-  const [keyword, setKeyword] = useState("");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [initial] = useState(() => loadSearchState());
+  const [keyword, setKeyword] = useState(initial?.keyword ?? "");
+  const [filters, setFilters] = useState<FilterState>(initial?.filters ?? DEFAULT_FILTERS);
   const [history, setHistory] = useState<SearchHistoryItem[]>([]);
-  const [allResults, setAllResults] = useState<VideoResult[]>([]);
-  const [nextPageToken, setNextPageToken] = useState<string | undefined>();
-  const currentReqRef = useRef<SearchRequest | null>(null);
+  const [allResults, setAllResults] = useState<VideoResult[]>(initial?.allResults ?? []);
+  const [nextPageToken, setNextPageToken] = useState<string | undefined>(initial?.nextPageToken);
+  const currentReqRef = useRef<SearchRequest | null>(initial?.currentReq ?? null);
   const queryClient = useQueryClient();
 
   const { data: session, isPending: sessionPending } = useSession();
@@ -40,6 +62,13 @@ export default function SearchPage() {
   });
 
   useEffect(() => { setHistory(getSearchHistory()); }, []);
+
+  useEffect(() => {
+    sessionStorage.setItem(
+      SEARCH_STATE_KEY,
+      JSON.stringify({ keyword, filters, allResults, nextPageToken, currentReq: currentReqRef.current })
+    );
+  }, [keyword, filters, allResults, nextPageToken]);
 
   const mutation = useMutation({
     mutationFn: (req: SearchRequest) => searchVideos(req),

@@ -2,10 +2,11 @@
 import { use } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getSearchUsage, getWorkshopItem, updateWorkshopItem } from "@/lib/api";
 import { WorkshopEditor, WorkshopEditableData } from "@/components/workshop/WorkshopEditor";
 import { Button } from "@/components/ui/button";
-import { Package, Loader2 } from "lucide-react";
+import { Package, Loader2, ArrowLeft } from "lucide-react";
 
 export default function WorkshopDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -64,6 +65,10 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-6 max-w-3xl">
+      <Link href="/workshop" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="w-4 h-4" />
+        목록으로
+      </Link>
       <div>
         <h1 className="text-2xl font-bold">{item.keyword}</h1>
         <p className="text-muted-foreground text-sm mt-1">
